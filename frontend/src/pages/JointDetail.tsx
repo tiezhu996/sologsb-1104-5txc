@@ -18,7 +18,16 @@ export default function JointDetail() {
   const loading = useJointStore((state) => state.loading)
   const loadAll = useJointStore((state) => state.loadAll)
   const updateMemberDimensions = useJointStore((state) => state.updateMemberDimensions)
-  const { steps, totalDurationSec, currentStepIndex, move, setCurrentStep } = useStepOrder(id)
+  const {
+    steps,
+    totalDurationSec,
+    currentStepIndex,
+    orderConflicts,
+    lastOrderConflict,
+    move,
+    clearOrderConflict,
+    setCurrentStep,
+  } = useStepOrder(id)
 
   useEffect(() => {
     void loadAll()
@@ -199,8 +208,36 @@ export default function JointDetail() {
               <h2 className="text-xl font-semibold text-wood-900">拆装步序</h2>
               <p className="mt-1 text-sm text-stone-500">点击步骤查看风险提醒，也可直接拖动调整顺序。</p>
             </div>
-            <span className="text-xs text-wood-700">共 {totalDurationSec} 秒</span>
+            <div className="flex items-center gap-3">
+              {steps.length > 0 && (
+                orderConflicts.length > 0 ? (
+                  <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+                    顺序对不上 {orderConflicts.length} 处
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800">前置顺序无误</span>
+                )
+              )}
+              <span className="text-xs text-wood-700">共 {totalDurationSec} 秒</span>
+            </div>
           </div>
+          {orderConflicts.length > 0 && (
+            <p className="text-xs leading-5 text-rose-700">
+              {orderConflicts
+                .map((conflict) => `第 ${conflict.stepSeq} 步排在其前置第 ${conflict.prerequisiteSeq} 步之前`)
+                .join('；')}
+            </p>
+          )}
+          {lastOrderConflict && (
+            <div className="flex items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3" role="alert">
+              <p className="text-sm leading-6 text-rose-800">
+                已退回原位：第 {lastOrderConflict.stepSeq} 步需排在它的前置步骤（第 {lastOrderConflict.prerequisiteSeq} 步）之后，这两步顺序对不上。
+              </p>
+              <button type="button" onClick={clearOrderConflict} className="shrink-0 text-xs text-rose-700 hover:underline">
+                知道了
+              </button>
+            </div>
+          )}
           {steps.length === 0 ? (
             <BlankPanel title="尚无拆装步骤" description="进入步序编排页补充拆装动作。" />
           ) : (

@@ -11,5 +11,7 @@ export interface DisassemblyStep {
   tool: StepTool
   riskNote: string
   holdSec: number
+  /** 本步之前必须先完成的步骤 id；留空表示没有前置。旧数据没有该字段，一律按无前置处理。 */
+  prerequisiteStepId?: string
   schemaRev?: number
 }
