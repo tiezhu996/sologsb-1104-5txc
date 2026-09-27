@@ -48,3 +48,17 @@
     @apply flex h-8 w-8 items-center justify-center rounded-lg border border-stone-200 bg-white text-lg text-stone-700 hover:bg-stone-50;
   }
 }
+
+@keyframes step-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@layer utilities {
+  .animate-step-shake {
+    animation: step-shake 0.4s ease-in-out;
+  }
+}

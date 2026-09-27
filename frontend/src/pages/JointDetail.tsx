@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { BlankPanel } from '../components/common/BlankPanel'
 import { DifficultyTag } from '../components/common/DifficultyTag'
+import { OrderConflictNotice } from '../components/common/OrderConflictNotice'
 import { SizeField } from '../components/common/SizeField'
 import { StepRail } from '../components/common/StepRail'
 import { useStepOrder } from '../hooks/useStepOrder'
@@ -18,11 +19,33 @@ export default function JointDetail() {
   const loading = useJointStore((state) => state.loading)
   const loadAll = useJointStore((state) => state.loadAll)
   const updateMemberDimensions = useJointStore((state) => state.updateMemberDimensions)
-  const { steps, totalDurationSec, currentStepIndex, move, setCurrentStep } = useStepOrder(id)
+  const { steps, totalDurationSec, currentStepIndex, violations, violationCount, move, setCurrentStep } = useStepOrder(id)
+
+  const [rejection, setRejection] = useState<{ message: string; stepIds: ReadonlySet<string> } | null>(null)
+  const rejectionTimer = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     void loadAll()
   }, [loadAll])
+
+  useEffect(() => () => window.clearTimeout(rejectionTimer.current), [])
+
+  const handleMove = async (from: number, to: number) => {
+    const outcome = await move(from, to)
+    if (outcome.ok) {
+      setRejection(null)
+      return
+    }
+    if (outcome.reason === 'violation') {
+      const { violation } = outcome
+      setRejection({
+        message: `第 ${violation.stepSeq} 步之前必须先做完第 ${violation.predecessorSeq} 步，不能把第 ${violation.stepSeq} 步拖到第 ${violation.predecessorSeq} 步前面。`,
+        stepIds: new Set([violation.stepId, violation.predecessorId]),
+      })
+      window.clearTimeout(rejectionTimer.current)
+      rejectionTimer.current = window.setTimeout(() => setRejection(null), 4000)
+    }
+  }
 
   const joint = joints.find((item) => item.id === id)
   const currentMembers = members
@@ -204,7 +227,26 @@ export default function JointDetail() {
           {steps.length === 0 ? (
             <BlankPanel title="尚无拆装步骤" description="进入步序编排页补充拆装动作。" />
           ) : (
-            <StepRail steps={steps} currentIndex={currentStepIndex} onSelect={setCurrentStep} onMove={(from, to) => void move(from, to)} />
+            <div className="space-y-3">
+              {violationCount > 0 && (
+                <span
+                  className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800"
+                  data-testid="detail-conflict-pill"
+                >
+                  {violationCount} 处顺序对不上
+                </span>
+              )}
+              <OrderConflictNotice violations={violations} rejection={rejection ? { message: rejection.message } : null} />
+              <StepRail
+                steps={steps}
+                currentIndex={currentStepIndex}
+                violations={violations}
+                highlightedStepIds={rejection?.stepIds}
+                onSelect={setCurrentStep}
+                onMove={(from, to) => void handleMove(from, to)}
+              />
+              <p className="text-xs text-stone-400">前置步骤可在「编排拆装步序」页为每一步指定。</p>
+            </div>
           )}
         </div>
       </section>

@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useStepStore } from '../stores/stepStore'
-import type { DisassemblyStep } from '../types/step'
+import type { DisassemblyStep, MoveOutcome, PrereqUpdateOutcome, PrereqViolation } from '../types/step'
+import { listPrereqViolations } from '../utils/prereq'
 
 interface StepOrderResult {
   steps: DisassemblyStep[]
   totalDurationSec: number
   currentStepIndex: number
-  move: (from: number, to: number) => Promise<void>
+  violations: PrereqViolation[]
+  violationCount: number
+  move: (from: number, to: number) => Promise<MoveOutcome>
+  setPrerequisite: (stepId: string, predecessorId: string | undefined) => Promise<PrereqUpdateOutcome>
   setCurrentStep: (index: number) => void
 }
 
@@ -33,15 +37,27 @@ export function useStepOrder(jointTypeId: string): StepOrderResult {
     [steps],
   )
 
-  const move = useCallback(async (from: number, to: number) => {
-    await useStepStore.getState().moveStep(from, to)
+  const violations = useMemo(() => listPrereqViolations(steps), [steps])
+
+  const move = useCallback(async (from: number, to: number): Promise<MoveOutcome> => {
+    return useStepStore.getState().moveStep(from, to)
   }, [])
+
+  const setPrerequisite = useCallback(
+    async (stepId: string, predecessorId: string | undefined): Promise<PrereqUpdateOutcome> => {
+      return useStepStore.getState().setPrerequisite(stepId, predecessorId)
+    },
+    [],
+  )
 
   return {
     steps,
     totalDurationSec,
     currentStepIndex: Math.min(currentStepIndex, Math.max(0, steps.length - 1)),
+    violations,
+    violationCount: violations.length,
     move,
+    setPrerequisite,
     setCurrentStep,
   }
 }
